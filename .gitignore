@@ -1,0 +1,22 @@
+# Java / Spring Boot
+backend/target/
+*.class
+*.log
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Local secrets
+.env
+.env.*
+!.env.example
+backend/src/main/resources/.env
+**/application-local.properties
+**/application-secrets.properties
+**/credentials.json
+**/secrets.json
+*.pem
+*.key
+*.p12
+*.jks
