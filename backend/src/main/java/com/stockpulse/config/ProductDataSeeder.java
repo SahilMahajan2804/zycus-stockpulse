@@ -1,13 +1,15 @@
 package com.stockpulse.config;
 
-import com.stockpulse.domain.enums.Category;
-import com.stockpulse.domain.Product;
-import com.stockpulse.repository.ProductRepository;
-import lombok.RequiredArgsConstructor;
+import java.math.BigDecimal;
+
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
+import com.stockpulse.domain.Product;
+import com.stockpulse.domain.enums.Category;
+import com.stockpulse.repository.ProductRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor

@@ -51,7 +51,27 @@ public class SuggestionService {
 
     @Transactional
     public void generate(String productId, TriggerReason reason) {
+        generateWithStrategies(productId, reason, "pricingAi", "pricingRuleBased", "reorderAi", "reorderRuleBased");
+    }
+
+    @Transactional
+    public void generateAiSuggestions(String productId, TriggerReason reason) {
+        generateWithStrategies(productId, reason, "pricingAi", null, "reorderAi", null);
+    }
+
+    @Transactional
+    public void generateRuleBasedSuggestions(String productId, TriggerReason reason) {
+        generateWithStrategies(productId, reason, null, "pricingRuleBased", null, "reorderRuleBased");
+    }
+
+    private void generateWithStrategies(String productId, TriggerReason reason,
+            String pricingAiKey, String pricingRuleKey, String reorderAiKey, String reorderRuleKey) {
         Product product = products.findByIdForUpdate(productId).orElseThrow(() -> new ProductNotFoundException(productId));
+        if (!product.isBelowThreshold()) {
+            log.info("Skipping suggestions for product {} because stock {} is not below threshold {}",
+                    productId, product.getStockLevel(), product.getReorderThreshold());
+            return;
+        }
         Double average = products.averagePeerVelocity(product.getCategory(), productId);
         double categoryAverage = average == null ? 0.0 : average;
 
@@ -60,10 +80,14 @@ public class SuggestionService {
         ReorderContext reorderContext = new ReorderContext(product.getName(), product.getCategory(), product.getCurrentPrice(),
                 product.getStockLevel(), product.getReorderThreshold(), product.getDemandVelocity(), categoryAverage, reason);
 
-        generatePricingSuggestion(product, pricingContext, reason, "pricingAi", productId + ":" + reason + ":PRICING:AI");
-        generatePricingSuggestion(product, pricingContext, reason, "pricingRuleBased", productId + ":" + reason + ":PRICING:RULE");
-        generateReorderSuggestion(product, reorderContext, reason, "reorderAi", productId + ":" + reason + ":REORDER:AI");
-        generateReorderSuggestion(product, reorderContext, reason, "reorderRuleBased", productId + ":" + reason + ":REORDER:RULE");
+        if (pricingAiKey != null) generatePricingSuggestion(product, pricingContext, reason, pricingAiKey,
+            productId + ":" + reason + ":PRICING:AI");
+        if (pricingRuleKey != null) generatePricingSuggestion(product, pricingContext, reason, pricingRuleKey,
+            productId + ":" + reason + ":PRICING:RULE");
+        if (reorderAiKey != null) generateReorderSuggestion(product, reorderContext, reason, reorderAiKey,
+            productId + ":" + reason + ":REORDER:AI");
+        if (reorderRuleKey != null) generateReorderSuggestion(product, reorderContext, reason, reorderRuleKey,
+            productId + ":" + reason + ":REORDER:RULE");
 
         boolean hasPendingPricing = pricingSuggestions.existsByProduct_IdAndStatus(productId, SuggestionStatus.PENDING);
         product.recomputeStatus(hasPendingPricing);

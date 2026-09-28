@@ -27,9 +27,9 @@ export default function SuggestionCard({ recommendation, onDecision, busyId }) {
     <div className="recommendation-details">
       <div className="recommendation-detail">
         <h4>Pricing</h4>
-        {prices.length ? prices.map((price, index) => <div className="suggestion-option" key={price.id}>
+        {prices.length ? prices.map(price => <div className="suggestion-option" key={price.id}>
           <div className="option-heading">
-            <strong>Option {index + 1}</strong>
+            <strong>{price.source === 'AI' ? 'AI suggestion' : 'Rule-based suggestion'}</strong>
             <span className="source-badge">{price.source || 'RULE'}</span>
           </div>
           <p className="recommendation-value">₹{Number(price.currentPrice).toFixed(2)} <span>→</span> ₹{Number(price.recommendedPrice).toFixed(2)}</p>
@@ -44,9 +44,9 @@ export default function SuggestionCard({ recommendation, onDecision, busyId }) {
 
       <div className="recommendation-detail">
         <h4>Reorder</h4>
-        {reorders.length ? reorders.map((reorder, index) => <div className="suggestion-option" key={reorder.id}>
+        {reorders.length ? reorders.map(reorder => <div className="suggestion-option" key={reorder.id}>
           <div className="option-heading">
-            <strong>Option {index + 1}</strong>
+            <strong>{reorder.source === 'AI' ? 'AI suggestion' : 'Rule-based suggestion'}</strong>
             <span className="source-badge">{reorder.source || 'RULE'}</span>
           </div>
           <p className="recommendation-value">{reorder.currentStock} → {reorder.recommendedQuantity} units</p>

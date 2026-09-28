@@ -1,13 +1,16 @@
 package com.stockpulse.ai;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import lombok.extern.slf4j.Slf4j;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import java.util.List;
-import java.util.Map;
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Component
 @Slf4j
@@ -19,10 +22,10 @@ public class LLMGateway {
     private final String baseUrl;
 
     public LLMGateway(RestClient.Builder builder,
-            @Value("${llm.provider:groq}") String provider,
-            @Value("${llm.model:openai/gpt-oss-20b}") String model,
+            @Value("${llm.provider:gemini}") String provider,
+            @Value("${llm.model:gemini-3.8-flash}") String model,
             @Value("${llm.api-key:}") String apiKey,
-            @Value("${llm.base-url:https://api.groq.com}") String baseUrl) {
+            @Value("${llm.base-url:https://generativelanguage.googleapis.com}") String baseUrl) {
         this.restClient = builder.build();
         this.provider = provider;
         this.model = model;
@@ -31,7 +34,10 @@ public class LLMGateway {
     }
 
     public String callLLM(String prompt) {
-        if (apiKey == null || apiKey.isBlank()) throw new IllegalStateException("LLM API key is not configured");
+        boolean keyConfigured = apiKey != null && !apiKey.isBlank();
+        log.info("LLM request started: provider={}, model={}, baseUrl={}, apiKeyConfigured={}",
+            provider, model, baseUrl, keyConfigured);
+        if (!keyConfigured) throw new IllegalStateException("LLM API key is not configured");
         if (provider.equalsIgnoreCase("gemini")) return callGemini(prompt);
         JsonNode response = restClient.post().uri(baseUrl + "/openai/v1/chat/completions")
                 .header("Authorization", "Bearer " + apiKey)
@@ -41,6 +47,7 @@ public class LLMGateway {
                 .retrieve().body(JsonNode.class);
         JsonNode content = response == null ? null : response.path("choices").path(0).path("message").path("content");
         if (content == null || content.isMissingNode() || content.isNull()) throw new IllegalStateException("LLM response had no content");
+        log.info("LLM request completed: provider={}, model={}", provider, model);
         return content.asText();
     }
 
@@ -51,6 +58,7 @@ public class LLMGateway {
                 .retrieve().body(JsonNode.class);
         JsonNode text = response == null ? null : response.path("candidates").path(0).path("content").path("parts").path(0).path("text");
         if (text == null || text.isMissingNode() || text.isNull()) throw new IllegalStateException("Gemini response had no content");
+        log.info("LLM request completed: provider={}, model={}", provider, model);
         return text.asText();
     }
 }
