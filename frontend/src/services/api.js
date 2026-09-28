@@ -26,6 +26,11 @@ export const getProducts = (category = '', status = '') => {
   return request(`/products${query ? `?${query}` : ''}`)
 }
 
+export const createProduct = (product) => request('/products', {
+  method: 'POST',
+  body: JSON.stringify(product),
+})
+
 export const getSummary = () => request('/dashboard/summary')
 export const getPendingRecommendations = () => request('/recommendations/pending')
 export const getStrategy = () => request('/admin/strategy')

@@ -1,14 +1,7 @@
 package com.stockpulse;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.stockpulse.domain.enums.Category;
-import com.stockpulse.dto.request.CreateProductRequest;
-import com.stockpulse.dto.request.OrderRequest;
-import com.stockpulse.dto.request.UpdateStockRequest;
-import com.stockpulse.repository.PricingSuggestionRepository;
-import com.stockpulse.repository.ReorderSuggestionRepository;
-import com.stockpulse.domain.enums.SuggestionStatus;
-import com.stockpulse.domain.enums.TriggerReason;
+import java.math.BigDecimal;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -16,14 +9,21 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-
-import java.math.BigDecimal;
-
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stockpulse.domain.enums.Category;
+import com.stockpulse.domain.enums.SuggestionStatus;
+import com.stockpulse.domain.enums.TriggerReason;
+import com.stockpulse.dto.request.CreateProductRequest;
+import com.stockpulse.dto.request.OrderRequest;
+import com.stockpulse.dto.request.UpdateStockRequest;
+import com.stockpulse.repository.PricingSuggestionRepository;
+import com.stockpulse.repository.ReorderSuggestionRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -147,6 +147,58 @@ class ProductPhase1Tests {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(orderRequest)))
             .andExpect(status().isConflict());
+    }
+
+    @Test
+    void manualPricingGeneratesAiAndRuleSuggestionsAndAcceptedChoiceDeletesTheOther() throws Exception {
+        CreateProductRequest request = new CreateProductRequest();
+        request.setId("PRD-110");
+        request.setSku("SKU-TEST-110");
+        request.setName("Dual Choice Product");
+        request.setCategory(Category.ELECTRONICS);
+        request.setCurrentPrice(new BigDecimal("59.99"));
+        request.setStockLevel(8);
+        request.setReorderThreshold(5);
+
+        mockMvc.perform(post("/api/products")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/products/PRD-110/suggest-pricing")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"triggerReason\":\"MANUAL\"}"))
+            .andExpect(status().isAccepted());
+
+        long deadline = System.nanoTime() + java.time.Duration.ofSeconds(8).toNanos();
+        while (System.nanoTime() < deadline) {
+            long pending = pricingSuggestionRepository.findAll().stream()
+                    .filter(s -> s.getProduct().getId().equals("PRD-110")
+                        && s.getTriggerReason() == TriggerReason.MANUAL
+                        && s.getStatus() == SuggestionStatus.PENDING)
+                    .count();
+            if (pending >= 2) break;
+            Thread.sleep(50);
+        }
+
+        var pendingSuggestions = pricingSuggestionRepository.findAll().stream()
+                .filter(s -> s.getProduct().getId().equals("PRD-110")
+                    && s.getTriggerReason() == TriggerReason.MANUAL
+                    && s.getStatus() == SuggestionStatus.PENDING)
+                .toList();
+        org.junit.jupiter.api.Assertions.assertEquals(2, pendingSuggestions.size());
+
+        String selectedId = pendingSuggestions.get(0).getId().toString();
+        mockMvc.perform(patch("/api/pricing-suggestions/" + selectedId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":\"ACCEPTED\"}"))
+            .andExpect(status().isOk());
+
+        long remaining = pricingSuggestionRepository.findAll().stream()
+                .filter(s -> s.getProduct().getId().equals("PRD-110")
+                    && s.getTriggerReason() == TriggerReason.MANUAL)
+                .count();
+        org.junit.jupiter.api.Assertions.assertEquals(1, remaining);
     }
 
             @Test

@@ -4,7 +4,7 @@ function StatusBadge({ status }) {
   </span>
 }
 
-export default function ProductTable({ products, category, status, onFilter, busyId, onSale }) {
+export default function ProductTable({ products, category, status, selectedProductId, onFilter, busyId, onSale, onSelect }) {
   return <section className="section">
     <div className="section-heading">
       <div><h2>Products</h2><p>Inventory and demand at a glance.</p></div>
@@ -23,7 +23,11 @@ export default function ProductTable({ products, category, status, onFilter, bus
     <div className="table-wrap">
       <table>
         <thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Threshold</th><th>Demand</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody>{products.map(product => <tr key={product.id}>
+        <tbody>{products.map(product => <tr
+          key={product.id}
+          className={selectedProductId === product.id ? 'selected-row' : ''}
+          onClick={() => onSelect(product.id)}
+        >
           <td><strong>{product.name}</strong><small>{product.id}</small></td>
           <td>{product.category}</td>
           <td>₹{Number(product.currentPrice).toFixed(2)}</td>
@@ -31,9 +35,9 @@ export default function ProductTable({ products, category, status, onFilter, bus
           <td>{product.reorderThreshold}</td>
           <td>{product.demandVelocity}</td>
           <td><StatusBadge status={product.status} /></td>
-          <td><div className="actions">
-            <button disabled={busyId === product.id || product.stockLevel < 1} onClick={() => onSale(product, 1)}>{busyId === product.id ? 'Selling…' : 'Sale'}</button>
-            <button className="secondary" disabled={busyId === product.id || product.stockLevel < 5} onClick={() => onSale(product, 5)}>Sell 5</button>
+          <td><div className="actions" onClick={e => e.stopPropagation()}>
+            <button type="button" disabled={busyId === product.id || product.stockLevel < 1} onClick={() => onSale(product, 1)}>{busyId === product.id ? 'Selling…' : 'Sale'}</button>
+            <button type="button" className="secondary" disabled={busyId === product.id || product.stockLevel < 5} onClick={() => onSale(product, 5)}>Sell 5</button>
           </div></td>
         </tr>)}
         {!products.length && <tr><td colSpan="8" className="empty">No products found.</td></tr>}</tbody>
